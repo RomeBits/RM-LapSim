@@ -1,4 +1,6 @@
 import numpy as np
+import json
+
 from scipy.interpolate import interp1d, interp2d
 from matplotlib import pyplot as plt
 
@@ -6,10 +8,7 @@ from matplotlib import pyplot as plt
 class Car:
     def __init__(self, car_data, engine_data):
         f = open(car_data, "r")
-        self.params = {}
-        
-        for i in f:
-            self.params[i.split()[0]] = i.split()[1]
+        self.params = json.load(f)
         f.close()
 
         f = open(engine_data, "r")
@@ -18,6 +17,7 @@ class Car:
         self.engine_torque = self.engine[:, 1]
         f.close()
 
+        self.params['finalDrive'] = self.params["diffSprocket"] / self.params["engineSprocket"]
         self.engine_force = None
         self.max_speed = None
         self.ggs = None
@@ -37,27 +37,27 @@ class Car:
         eng_torque = yy
 
         # Get force multiplier for each gear
-        final_drive = float(self.params['final_drive']) * float(self.params['primary_drive'])
+        final_drive = float(self.params['finalDrive']) * float(self.params['primaryDrive'])
         multiplier = []
-        tire_circ = 2 * np.pi * float(self.params['tire_radius'])
+        tire_circ = 2 * np.pi * float(self.params['tireRadius'])
         min_gear_ratio = 0
         max_gear_ratio = 0
-        for i in range(len(self.params['gear_ratios'])):
-            gear_ratio = float(self.params['gear_ratios'][i]) * final_drive
+        for i in range(len(self.params['gearRatios'])):
+            gear_ratio = float(self.params['gearRatios'][i]) * final_drive
             if min_gear_ratio == 0 or gear_ratio < min_gear_ratio:
                 min_gear_ratio = gear_ratio
             if max_gear_ratio == 0 or gear_ratio > max_gear_ratio:
                 max_gear_ratio = gear_ratio
             multiplier.append(tire_circ / gear_ratio)
         max_speed = (max(eng_rpm) / 60) * tire_circ / min_gear_ratio
-        min_force = eng_torque[0] * max_gear_ratio / float(self.params['tire_radius'])
+        min_force = eng_torque[0] * max_gear_ratio / float(self.params['tireRadius'])
 
         # # Get the wheel torque and wheel speed curves for each gear
         wheel_speed = []
         wheel_force = []
         for i in range(len(multiplier)):
             speed_mult = multiplier[i]
-            force_mult = (tire_circ / multiplier[i]) / float(self.params['tire_radius'])
+            force_mult = (tire_circ / multiplier[i]) / float(self.params['tireRadius'])
             wheel_speed.append(eng_rpm * speed_mult / 60)  # m/s
             wheel_force.append(eng_torque * force_mult)  # N
 
@@ -77,6 +77,8 @@ class Car:
         self.max_speed = np.max(vehicle_speed)
 
         plt.plot(vehicle_speed, vehicle_force, 'g.')
+        plt.xlabel('Speed (m/s)')
+        plt.ylabel('Force (N)')
         plt.show()
 
     def create_gg_plot(self):
